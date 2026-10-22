@@ -1,16 +1,48 @@
-# owlvision
+# OwlVision
 
-A new Flutter project.
+OwlVision is a Flutter mobile app for real-time object detection using the device camera and a bundled TensorFlow Lite EfficientDet-Lite2 model. Inference runs locally on the device; no image upload or account is required.
 
-## Getting Started
+## What is included
 
-This project is a starting point for a Flutter application.
+- Live camera preview with bounding boxes, class labels and confidence scores
+- Adjustable confidence threshold and pause/resume controls
+- Front/rear camera switching where the device supports it
+- On-device inference using `models/object.tflite`
+- Clear loading and camera/model error states
 
-A few resources to get you started if this is your first Flutter project:
+## Requirements
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- Flutter SDK compatible with Dart `^3.5.3`
+- Android Studio/Xcode for the target platform
+- A physical device with a camera is recommended; simulators may not provide a usable camera or delegate support
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Run
+
+```bash
+flutter pub get
+flutter run
+```
+
+To run tests:
+
+```bash
+flutter test
+```
+
+To build an Android APK:
+
+```bash
+flutter build apk --release
+```
+
+## How it works
+
+The app captures a camera still at a throttled interval, resizes it to the model's 448×448 RGB input, runs inference with TensorFlow Lite, and draws returned normalized bounding boxes over the preview. The separate `models/model.tflite` image-classification model is retained in the repository but is not used by the live detector.
+
+## Important model note
+
+Object labels are mapped using the common COCO label set. Model class indexing can vary by model export; if labels look consistently offset on your device, confirm the label-map embedded in the exact `object.tflite` export and update `_labels` in `lib/services/tensor.dart`. Detection quality depends on lighting, camera position, and the model's supported categories.
+
+## Permissions and privacy
+
+The app requests camera access only. Camera frames are processed locally and temporary captures are deleted after inference when possible. No audio, location, storage, or notification permission is needed for the current feature set.

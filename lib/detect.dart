@@ -106,7 +106,7 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> with Widg
   Widget build(BuildContext context) {
     final camera = _camera;
     return Scaffold(
-      appBar: AppBar(title: const Row(children: [Icon(Icons.center_focus_strong_rounded, color: Color(0xFF8BCEB5)), SizedBox(width: 10), Text('Object Owl', style: TextStyle(fontWeight: FontWeight.w700))]),
+      appBar: AppBar(title: const Row(children: [Icon(Icons.center_focus_strong_rounded, color: Color(0xFF8BCEB5)), SizedBox(width: 10), Text('Owl Vision', style: TextStyle(fontWeight: FontWeight.w700))]),
         actions: [IconButton(tooltip: 'Switch camera', onPressed: _cameras.length > 1 ? _switchCamera : null, icon: const Icon(Icons.cameraswitch_rounded))]),
       body: SafeArea(child: Column(children: [
         Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 16), child: Row(children: [

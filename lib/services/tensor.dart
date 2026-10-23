@@ -30,7 +30,7 @@ class ObjectDetectionService {
 
   Future<void> loadModel() async {
     final options = InterpreterOptions()..threads = 4;
-    _interpreter = await Interpreter.fromAsset('models/yolov8n.tflite', options: options);
+    _interpreter = await Interpreter.fromAsset('models/object.tflite', options: options);
     _inputShape = _interpreter!.getInputTensor(0).shape;
     if (_inputShape.length != 4 || _inputShape.last != 3) {
       throw StateError('The bundled object detection model has an unsupported input shape: $_inputShape');

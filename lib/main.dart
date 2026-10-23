@@ -10,7 +10,7 @@ class ObjectOwlApp extends StatelessWidget {
   Widget build(BuildContext context) {
     const seed = Color(0xFF8BCEB5);
     return MaterialApp(
-      title: 'Object Owl',
+      title: 'Owl Vision',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

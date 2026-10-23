@@ -1,6 +1,6 @@
-# OwlVision
+# Owl Vision
 
-OwlVision is a Flutter mobile app for real-time object detection using the device camera and a bundled TensorFlow Lite EfficientDet-Lite2 model. Inference runs locally on the device; no image upload or account is required.
+Owl Vision is a Flutter mobile app for real-time object detection using the device camera and a bundled TensorFlow Lite EfficientDet-Lite2 model. Inference runs locally on the device; no image upload or account is required.
 
 ## What is included
 

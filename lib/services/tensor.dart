@@ -30,11 +30,32 @@ class ObjectDetectionService {
 
   Future<void> loadModel() async {
     final options = InterpreterOptions()..threads = 4;
-    _interpreter = await Interpreter.fromAsset('models/object.tflite', options: options);
-    _inputShape = _interpreter!.getInputTensor(0).shape;
-    if (_inputShape.length != 4 || _inputShape.last != 3) {
-      throw StateError('The bundled object detection model has an unsupported input shape: $_inputShape');
+
+    _interpreter = await Interpreter.fromAsset(
+      'models/yolov8n.tflite',
+      options: options,
+    );
+
+    final inputs = _interpreter!.getInputTensors();
+    final outputs = _interpreter!.getOutputTensors();
+
+    print('=== OWLVISION YOLO MODEL ===');
+
+    for (var i = 0; i < inputs.length; i++) {
+      print(
+        'INPUT $i: shape=${inputs[i].shape}, '
+        'type=${inputs[i].type}',
+      );
     }
+
+    for (var i = 0; i < outputs.length; i++) {
+      print(
+        'OUTPUT $i: shape=${outputs[i].shape}, '
+        'type=${outputs[i].type}',
+      );
+    }
+
+    _inputShape = inputs[0].shape;
   }
 
   Future<List<DetectedObject>> detect(ui.Image frame, {double threshold = .40}) async {
@@ -45,17 +66,34 @@ class ObjectDetectionService {
     final decoded = img.decodeImage(byteData.buffer.asUint8List());
     if (decoded == null) throw StateError('Could not decode the camera frame.');
 
-    final height = _inputShape[1], width = _inputShape[2];
+    final shape = _inputShape;
+
+    // YOLOv8 NCHW: [1, 3, height, width]
+    if (shape.length != 4 || shape[0] != 1 || shape[1] != 3) {
+      throw StateError('Expected YOLO NCHW input [1, 3, H, W], got $shape');
+    }
+
+    final height = shape[2];
+    final width = shape[3];
+
     final resized = img.copyResize(decoded, width: width, height: height);
-    final input = Uint8List(width * height * 3);
-    var i = 0;
+
+    // Planar RGB data: all red values, then green, then blue.
+    final input = Float32List(3 * height * width);
+    final planeSize = height * width;
+
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
         final p = resized.getPixel(x, y);
-        input[i++] = p.r.toInt(); input[i++] = p.g.toInt(); input[i++] = p.b.toInt();
+        final pixelIndex = y * width + x;
+
+        input[pixelIndex] = p.r / 255.0;
+        input[planeSize + pixelIndex] = p.g / 255.0;
+        input[2 * planeSize + pixelIndex] = p.b / 255.0;
       }
     }
-    final shapedInput = input.reshape(_inputShape);
+
+    final shapedInput = input.reshape(shape);
     final tensors = List.generate(interpreter.getOutputTensors().length, (index) => interpreter.getOutputTensor(index));
     final outputs = <int, Object>{};
     for (var index = 0; index < tensors.length; index++) {

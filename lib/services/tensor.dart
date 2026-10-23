@@ -101,45 +101,67 @@ class ObjectDetectionService {
     }
     interpreter.runForMultipleInputs([shapedInput], outputs);
 
-    // TFLite Model Maker EfficientDet convention: locations, classes, scores, count.
-    int locationIndex = -1, classIndex = -1, scoreIndex = -1, countIndex = -1;
-    for (var index = 0; index < tensors.length; index++) {
-      final shape = tensors[index].shape;
-      if (shape.length >= 2 && shape.last == 4) {
-        locationIndex = index;
-      } else if (shape.length <= 1 || (shape.length == 2 && shape.last == 1)) {
-        countIndex = index;
-      }
+    // YOLOv8 output: [1, 84, 8400]
+    final outputShape = tensors[0].shape;
+
+    if (outputShape.length != 3 ||
+        outputShape[0] != 1 ||
+        outputShape[1] != 84) {
+      throw StateError('Unsupported YOLO output shape: $outputShape');
     }
-    final candidates = <int>[];
-    for (var index = 0; index < tensors.length; index++) {
-      if (index == locationIndex || index == countIndex) continue;
-      candidates.add(index);
-    }
-    if (candidates.length >= 2) { classIndex = candidates[0]; scoreIndex = candidates[1]; }
-    if (locationIndex < 0 || classIndex < 0 || scoreIndex < 0) {
-      throw StateError('Unsupported model output tensors: ${tensors.map((t) => t.shape).toList()}');
-    }
-    final locations = _flatten(outputs[locationIndex]!);
-    final classes = _flatten(outputs[classIndex]!);
-    final scores = _flatten(outputs[scoreIndex]!);
+
+    final output = _flatten(outputs[0]!);
+    const attributes = 84;
+    final candidates = outputShape[2];
+
     final result = <DetectedObject>[];
-    final total = [locations.length ~/ 4, classes.length, scores.length].reduce((a,b) => a < b ? a : b);
-    for (var n = 0; n < total; n++) {
-      final score = scores[n].toDouble();
-      if (!score.isFinite || score < threshold) continue;
-      final classId = classes[n].toDouble().round();
-      // EfficientDet location values are [top, left, bottom, right], normalized.
-      final top = locations[n * 4].toDouble().clamp(0.0, 1.0);
-      final left = locations[n * 4 + 1].toDouble().clamp(0.0, 1.0);
-      final bottom = locations[n * 4 + 2].toDouble().clamp(0.0, 1.0);
-      final right = locations[n * 4 + 3].toDouble().clamp(0.0, 1.0);
+
+    for (var n = 0; n < candidates; n++) {
+      // YOLOv8 layout: [1, attributes, candidates].
+      final cx = output[0 * candidates + n].toDouble();
+      final cy = output[1 * candidates + n].toDouble();
+      final w = output[2 * candidates + n].toDouble();
+      final h = output[3 * candidates + n].toDouble();
+
+      var bestClass = -1;
+      var bestScore = 0.0;
+
+      for (var c = 4; c < attributes; c++) {
+        final score = output[c * candidates + n].toDouble();
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestClass = c - 4;
+        }
+      }
+
+      if (!bestScore.isFinite || bestScore < threshold || bestClass < 0) {
+        continue;
+      }
+
+      // Standard YOLOv8 outputs use center-x, center-y, width, height
+      // in input-image pixel coordinates.
+      final left = ((cx - w / 2) / _inputShape[3]).clamp(0.0, 1.0);
+      final top = ((cy - h / 2) / _inputShape[2]).clamp(0.0, 1.0);
+      final right = ((cx + w / 2) / _inputShape[3]).clamp(0.0, 1.0);
+      final bottom = ((cy + h / 2) / _inputShape[2]).clamp(0.0, 1.0);
+
       if (right <= left || bottom <= top) continue;
-      final label = classId >= 0 && classId < _labels.length ? _labels[classId] : 'Object ${classId + 1}';
-      result.add(DetectedObject(label: label.trim(), score: score,
-        box: [left, top, right - left, bottom - top]));
+
+      final label = bestClass < _labels.length
+          ? _labels[bestClass].trim()
+          : 'Object ${bestClass + 1}';
+
+      result.add(
+        DetectedObject(
+          label: label,
+          score: bestScore,
+          box: [left, top, right - left, bottom - top],
+        ),
+      );
     }
-    result.sort((a,b) => b.score.compareTo(a.score));
+
+    result.sort((a, b) => b.score.compareTo(a.score));
     return result;
   }
 
